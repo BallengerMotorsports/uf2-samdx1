@@ -1,7 +1,8 @@
-BOARD=zero
+BOARD=feather_m0
 -include Makefile.user
 include boards/$(BOARD)/board.mk
-CC=arm-none-eabi-gcc
+#CC=arm-none-eabi-gcc
+
 ifeq ($(CHIP_FAMILY), samd21)
 COMMON_FLAGS = -mthumb -mcpu=cortex-m0plus -Os -g -DSAMD21
 endif
@@ -27,6 +28,7 @@ CFLAGS = $(COMMON_FLAGS) \
 $(WFLAGS)
 
 UF2_VERSION_BASE = $(shell git describe --dirty --always --tags)
+#UF2_VERSION_BASE = 1
 
 ifeq ($(CHIP_FAMILY), samd21)
 LINKER_SCRIPT=scripts/samd21j18a.ld
@@ -40,15 +42,27 @@ BOOTLOADER_SIZE=16384
 SELF_LINKER_SCRIPT=scripts/samd51j19a_self.ld
 endif
 
+MODULE_PATH?=$(LOCALAPPDATA)/Arduino15/packages/$(CORE_VENDOR)
+MODULE_PATH_ARDUINO?=$(LOCALAPPDATA)/Arduino15/packages/arduino
+RM=del
+SEP=\\
+PATHSEP=$(strip $(SEP))
+ARM_GCC_PATH?=$(MODULE_PATH_ARDUINO)/tools/arm-none-eabi-gcc/4.8.3-2014q1/bin/arm-none-eabi-
+BUILD_DIR=build
+CC=$(ARM_GCC_PATH)gcc
+OBJCOPY=$(ARM_GCC_PATH)objcopy
+NM=$(ARM_GCC_PATH)nm
+SIZE=$(ARM_GCC_PATH)size
+
 LDFLAGS= $(COMMON_FLAGS) \
 -Wall -Wl,--cref -Wl,--check-sections -Wl,--gc-sections -Wl,--unresolved-symbols=report-all -Wl,--warn-common \
 -Wl,--warn-section-align \
 -save-temps -nostartfiles \
 --specs=nano.specs --specs=nosys.specs
-BUILD_PATH=build/$(BOARD)
+#BUILD_PATH=build/$(BOARD)
 INCLUDES = -I. -I./inc -I./inc/preprocessor
 INCLUDES += -I./boards/$(BOARD) -Ilib/cmsis/CMSIS/Include -Ilib/usb_msc
-INCLUDES += -I$(BUILD_PATH)
+INCLUDES += -I$(BUILD_DIR)
 
 
 ifeq ($(CHIP_FAMILY), samd21)
@@ -88,126 +102,74 @@ SOURCES = $(COMMON_SRC) \
 SELF_SOURCES = $(COMMON_SRC) \
 	src/selfmain.c
 
-OBJECTS = $(patsubst src/%.c,$(BUILD_PATH)/%.o,$(SOURCES))
-SELF_OBJECTS = $(patsubst src/%.c,$(BUILD_PATH)/%.o,$(SELF_SOURCES)) $(BUILD_PATH)/selfdata.o
+OBJECTS = $(patsubst src/%.c,$(BUILD_DIR)/%.o,$(SOURCES))
+SELF_OBJECTS = $(patsubst src/%.c,$(BUILD_DIR)/%.o,$(SELF_SOURCES)) $(BUILD_DIR)/selfdata.o
 
 NAME=bootloader-$(BOARD)-$(UF2_VERSION_BASE)
-EXECUTABLE=$(BUILD_PATH)/$(NAME).bin
-SELF_EXECUTABLE=$(BUILD_PATH)/update-$(NAME).uf2
-SELF_EXECUTABLE_INO=$(BUILD_PATH)/update-$(NAME).ino
+#NAME=bootloader
+EXECUTABLE=$(BUILD_DIR)/$(NAME).bin
+SELF_EXECUTABLE=$(BUILD_DIR)/update-$(NAME).uf2
+SELF_EXECUTABLE_INO=$(BUILD_DIR)/update-$(NAME).ino
 
 SUBMODULES = lib/uf2/README.md
 
 all: $(SUBMODULES) dirs $(EXECUTABLE) $(SELF_EXECUTABLE)
 
-r: run
-b: burn
-l: logs
-
-burn: all
-	node scripts/dbgtool.js fuses
-	node scripts/dbgtool.js $(BUILD_PATH)/$(NAME).bin
-
-run: burn wait logs
-
-# This currently only works on macOS with a BMP debugger attached.
-# It's meant to flash the bootloader in a loop.
-BMP = $(shell ls -1 /dev/cu.usbmodem* | head -1)
-BMP_ARGS = --nx -ex "set mem inaccessible-by-default off" -ex "set confirm off" -ex "target extended-remote $(BMP)" -ex "mon tpwr enable" -ex "mon swdp_scan" -ex "attach 1"
-GDB = arm-none-eabi-gdb
-
-bmp-flash: $(BUILD_PATH)/$(NAME).bin
-	@test "X$(BMP)" != "X"
-	$(GDB) $(BMP_ARGS) -ex "load" -ex "quit" $(BUILD_PATH)/$(NAME).elf | tee build/flash.log
-	@grep -q "Transfer rate" build/flash.log
-
-bmp-flashone:
-	while : ; do $(MAKE) bmp-flash && exit 0 ; sleep 1 ; done
-	afplay /System/Library/PrivateFrameworks/ScreenReader.framework/Versions/A/Resources/Sounds/Error.aiff
-
-bmp-loop:
-	while : ; do $(MAKE) bmp-flashone ; sleep 5 ; done
-
-bmp-gdb: $(BUILD_PATH)/$(NAME).bin
-	$(GDB) $(BMP_ARGS) $(BUILD_PATH)/$(NAME).elf
-
-$(BUILD_PATH)/flash.jlink: $(BUILD_PATH)/$(NAME).bin
-	echo " \n\
-r \n\
-h \n\
-loadbin \"$(BUILD_PATH)/$(NAME).bin\", 0x0 \n\
-verifybin \"$(BUILD_PATH)/$(NAME).bin\", 0x0 \n\
-r \n\
-qc \n\
-" > $(BUILD_PATH)/flash.jlink
-
-jlink-flash: $(BUILD_PATH)/$(NAME).bin $(BUILD_PATH)/flash.jlink
-	JLinkExe -if swd -device AT$(CHIP_VARIANT) -speed 4000 -CommanderScript $(BUILD_PATH)/flash.jlink
-
-wait:
-	sleep 5
-
-logs:
-	node scripts/dbgtool.js $(BUILD_PATH)/$(NAME).map
-
-selflogs:
-	node scripts/dbgtool.js $(BUILD_PATH)/update-$(NAME).map
-
 dirs:
 	@echo "Building $(BOARD)"
-	-@mkdir -p $(BUILD_PATH)
+	-mkdir "$(BUILD_DIR)"
 
 $(EXECUTABLE): $(OBJECTS)
-	$(CC) -L$(BUILD_PATH) $(LDFLAGS) \
+	$(CC) -L$(BUILD_DIR) $(LDFLAGS) \
 		 -T$(LINKER_SCRIPT) \
-		 -Wl,-Map,$(BUILD_PATH)/$(NAME).map -o $(BUILD_PATH)/$(NAME).elf $(OBJECTS)
-	arm-none-eabi-objcopy -O binary $(BUILD_PATH)/$(NAME).elf $@
+		 -Wl,-Map,$(BUILD_DIR)/$(NAME).map -o $(BUILD_DIR)/$(NAME).elf $(OBJECTS)
+	$(OBJCOPY) -O binary $(BUILD_DIR)/$(NAME).elf $@
 	@echo
-	-@arm-none-eabi-size $(BUILD_PATH)/$(NAME).elf | awk '{ s=$$1+$$2; print } END { print ""; print "Space left: " ($(BOOTLOADER_SIZE)-s) }'
+	-@$(SIZE) $(BUILD_DIR)/$(NAME).elf | awk '{ s=$$1+$$2; print } END { print ""; print "Space left: " ($(BOOTLOADER_SIZE)-s) }'
 	@echo
 
-$(BUILD_PATH)/uf2_version.h: Makefile
-	echo "#define UF2_VERSION_BASE \"$(UF2_VERSION_BASE)\""> $@
+$(BUILD_DIR)/uf2_version.h: Makefile
+	echo #define UF2_VERSION_BASE $(UF2_VERSION_BASE) > $@
 
 $(SELF_EXECUTABLE): $(SELF_OBJECTS)
-	$(CC) -L$(BUILD_PATH) $(LDFLAGS) \
+	$(CC) -L$(BUILD_DIR) $(LDFLAGS) \
 		 -T$(SELF_LINKER_SCRIPT) \
-		 -Wl,-Map,$(BUILD_PATH)/update-$(NAME).map -o $(BUILD_PATH)/update-$(NAME).elf $(SELF_OBJECTS)
-	arm-none-eabi-objcopy -O binary $(BUILD_PATH)/update-$(NAME).elf $(BUILD_PATH)/update-$(NAME).bin
-	python3 lib/uf2/utils/uf2conv.py -b $(BOOTLOADER_SIZE) -c -o $@ $(BUILD_PATH)/update-$(NAME).bin
+		 -Wl,-Map,$(BUILD_DIR)/update-$(NAME).map -o $(BUILD_DIR)/update-$(NAME).elf $(SELF_OBJECTS)
+	$(OBJCOPY) -O binary $(BUILD_DIR)/update-$(NAME).elf $(BUILD_DIR)/update-$(NAME).bin
+	py lib/uf2/utils/uf2conv.py -b $(BOOTLOADER_SIZE) -c -o $@ $(BUILD_DIR)/update-$(NAME).bin
 
-$(BUILD_PATH)/%.o: src/%.c $(wildcard inc/*.h boards/*/*.h) $(BUILD_PATH)/uf2_version.h
+$(BUILD_DIR)/%.o: src/%.c $(wildcard inc/*.h boards/*/*.h) $(BUILD_DIR)/uf2_version.h
 	echo "$<"
 	$(CC) $(CFLAGS) $(BLD_EXTA_FLAGS) $(INCLUDES) $< -o $@
 
-$(BUILD_PATH)/%.o: $(BUILD_PATH)/%.c
+$(BUILD_DIR)/%.o: $(BUILD_DIR)/%.c
 	$(CC) $(CFLAGS) $(BLD_EXTA_FLAGS) $(INCLUDES) $< -o $@
 
-$(BUILD_PATH)/selfdata.c: $(EXECUTABLE) scripts/gendata.py src/sketch.cpp
-	python3 scripts/gendata.py $(BOOTLOADER_SIZE) $(EXECUTABLE)
+$(BUILD_DIR)/selfdata.c: $(EXECUTABLE) scripts/gendata.py src/sketch.cpp
+	py scripts/gendata.py $(BOOTLOADER_SIZE) $(EXECUTABLE)
 
 clean:
-	rm -rf build
+	del -rf build
 
 gdb:
-	arm-none-eabi-gdb $(BUILD_PATH)/$(NAME).elf
+	arm-none-eabi-gdb $(BUILD_DIR)/$(NAME).elf
 
 tui:
-	arm-none-eabi-gdb -tui $(BUILD_PATH)/$(NAME).elf
+	arm-none-eabi-gdb -tui $(BUILD_DIR)/$(NAME).elf
 
 %.asmdump: %.o
 	arm-none-eabi-objdump -d $< > $@
 
-applet0: $(BUILD_PATH)/flash.asmdump
+applet0: $(BUILD_DIR)/flash.asmdump
 	node scripts/genapplet.js $< flash_write
 
-applet1: $(BUILD_PATH)/utils.asmdump
+applet1: $(BUILD_DIR)/utils.asmdump
 	node scripts/genapplet.js $< resetIntoApp
 
 drop-board: all
 	@echo "*** Copy files for $(BOARD)"
 	mkdir -p build/drop
-	rm -rf build/drop/$(BOARD)
+	del -rf build/drop/$(BOARD)
 	mkdir -p build/drop/$(BOARD)
 	cp $(SELF_EXECUTABLE) build/drop/$(BOARD)/
 	cp $(EXECUTABLE) build/drop/$(BOARD)/
@@ -221,7 +183,7 @@ drop-pkg:
 	mv build/drop build/uf2-samd21-$(UF2_VERSION_BASE)
 	cp bin-README.md build/uf2-samd21-$(UF2_VERSION_BASE)/README.md
 	cd build; 7z a uf2-samd21-$(UF2_VERSION_BASE).zip uf2-samd21-$(UF2_VERSION_BASE)
-	rm -rf build/uf2-samd21-$(UF2_VERSION_BASE)
+	del -rf build/uf2-samd21-$(UF2_VERSION_BASE)
 
 all-boards:
 	for f in `cd boards; ls` ; do "$(MAKE)" BOARD=$$f drop-board || break -1; done
