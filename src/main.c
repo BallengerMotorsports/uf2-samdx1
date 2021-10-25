@@ -102,7 +102,7 @@ static void check_start_application(void) {
         /* Stay in bootloader */
         return;
     }
-
+/*
 #if USE_SINGLE_RESET
     if (SINGLE_RESET()) {
         if (RESET_CONTROLLER->RCAUSE.bit.POR || *DBL_TAP_PTR != DBL_TAP_MAGIC_QUICK_BOOT) {
@@ -129,7 +129,7 @@ static void check_start_application(void) {
             delay(500);
         }
         *DBL_TAP_PTR = 0;
-    }
+    }*/
 
     LED_MSC_OFF();
 

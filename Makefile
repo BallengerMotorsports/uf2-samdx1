@@ -1,4 +1,5 @@
-BOARD=flag_m0
+#BOARD=controller_m0
+BOARD=sign_m0
 -include Makefile.user
 include boards/$(BOARD)/board.mk
 #CC=arm-none-eabi-gcc

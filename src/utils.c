@@ -175,6 +175,10 @@ void led_init() {
     PINOP(LED_PIN, DIRSET);
 #endif
     LED_MSC_ON();
+#if defined(PWR_PIN)	//Pulls up self Power on pin very early in the boot process
+    PINOP(PWR_PIN, DIRSET);
+	PINOP(PWR_PIN, OUTSET)
+#endif
 
 #if defined(BOARD_RGBLED_CLOCK_PIN)
     // using APA102, set pins to outputs
