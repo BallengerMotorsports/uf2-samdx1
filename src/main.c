@@ -102,7 +102,7 @@ static void check_start_application(void) {
         /* Stay in bootloader */
         return;
     }
-/*
+#ifndef NO_DBL_TAP_BOOT
 #if USE_SINGLE_RESET
     if (SINGLE_RESET()) {
         if (RESET_CONTROLLER->RCAUSE.bit.POR || *DBL_TAP_PTR != DBL_TAP_MAGIC_QUICK_BOOT) {
@@ -129,8 +129,14 @@ static void check_start_application(void) {
             delay(500);
         }
         *DBL_TAP_PTR = 0;
-    }*/
-
+    }
+#endif
+#if defined(PWR_PIN)	//Pulls up self Power on pin very early in the boot process
+    PINOP(PWR_PIN, DIRSET);
+	PINOP(PWR_PIN, OUTCLR);
+	delay(50);
+	PINOP(PWR_PIN, OUTSET);
+#endif
     LED_MSC_OFF();
 
 #if defined(BOARD_RGBLED_CLOCK_PIN)

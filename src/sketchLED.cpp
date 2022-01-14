@@ -114,9 +114,31 @@ void loop_delay(int ms) {
     }
 }
 
-void setup() {
-    if (8 << NVMCTRL->PARAM.bit.PSZ != FLASH_PAGE_SIZE) {
+void blink_n(int n, int interval) {
+    // Start out off.
+    digitalWrite(LED_BUILTIN, LOW);
+    loop_delay(interval);
+    for (int i = 0; i < n; ++i) {
+        digitalWrite(LED_BUILTIN, HIGH);
+        loop_delay(interval);
+        digitalWrite(LED_BUILTIN, LOW);
+        loop_delay(interval);
+    }
+}
 
+void blink_n_forever(int n, int interval) {
+    while(1) {
+        blink_n(n, interval);
+        loop_delay(interval*5);
+    }
+}
+
+void setup() {
+    pinMode(LED_BUILTIN, OUTPUT);
+    digitalWrite(LED_BUILTIN, HIGH);
+
+    if (8 << NVMCTRL->PARAM.bit.PSZ != FLASH_PAGE_SIZE) {
+        blink_n_forever(2, 200);
     }
 
     NVMCTRL->CTRLB.bit.MANW = 1;
@@ -136,7 +158,7 @@ void setup() {
             crc = add_crc(*ptr++, crc);
         }
         if (bootloader_crcs[i] != crc) {
-
+            blink_n_forever(3, 200);
         }
     }
 
@@ -145,12 +167,15 @@ void setup() {
         flash_write_row((uint32_t *)flash_addr, (uint32_t *)&bootloader[flash_addr]);
         if (memcmp((const void *)flash_addr, &bootloader[flash_addr], FLASH_ROW_SIZE) != 0) {
             // Write verify failed.
+            blink_n_forever(4, 200);
         }
     }
 
     // re-base int vector back to bootloader, so that the flash erase below doesn't write over the
     // vectors
     SCB->VTOR = 0;
+
+    blink_n(5, 750);
 
     // Write zeros to the stack location and reset handler location so the
     // bootloader doesn't run us a second time. We don't need to erase to write

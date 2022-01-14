@@ -1,5 +1,6 @@
 #BOARD=controller_m0
-BOARD=sign_m0
+#BOARD=signboard_m0
+#BOARD=feather_m0
 -include Makefile.user
 include boards/$(BOARD)/board.mk
 #CC=arm-none-eabi-gcc
@@ -49,7 +50,7 @@ RM=del
 SEP=\\
 PATHSEP=$(strip $(SEP))
 ARM_GCC_PATH?=$(MODULE_PATH_ARDUINO)/tools/arm-none-eabi-gcc/7-2017q4/bin/arm-none-eabi-
-BUILD_DIR=build
+BUILD_DIR=build/$(BOARD)
 CC=$(ARM_GCC_PATH)gcc
 OBJCOPY=$(ARM_GCC_PATH)objcopy
 NM=$(ARM_GCC_PATH)nm
@@ -146,7 +147,11 @@ $(BUILD_DIR)/%.o: src/%.c $(wildcard inc/*.h boards/*/*.h) $(BUILD_DIR)/uf2_vers
 $(BUILD_DIR)/%.o: $(BUILD_DIR)/%.c
 	$(CC) $(CFLAGS) $(BLD_EXTA_FLAGS) $(INCLUDES) $< -o $@
 
+ifeq ($(BOARD), feather_m0)
+$(BUILD_DIR)/selfdata.c: $(EXECUTABLE) scripts/gendata.py src/sketchLED.cpp
+else
 $(BUILD_DIR)/selfdata.c: $(EXECUTABLE) scripts/gendata.py src/sketch.cpp
+endif
 	py scripts/gendata.py $(BOOTLOADER_SIZE) $(EXECUTABLE)
 
 clean:

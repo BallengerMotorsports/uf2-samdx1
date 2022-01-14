@@ -3,13 +3,14 @@
 
 #define VENDOR_NAME "Flagtronics"
 #define PRODUCT_NAME "Signboard M0"
-#define VOLUME_LABEL "FT-BOOT"
+#define VOLUME_LABEL "FT-Sign-BL"
 #define INDEX_URL "https://flagtronics.com/"
 #define BOARD_ID "Signboard-v0"
 
-#define USB_VID 0x239A
-#define USB_PID 0x0015
+#define USB_VID 0x04D8
+#define USB_PID 0xE7F9
 
+#define NO_DBL_TAP_BOOT
 #define BOOT_USART_MODULE SERCOM5
 #define BOOT_USART_PAD_SETTINGS UART_RX_PAD3_TX_PAD2
 #define BOOT_USART_PAD3 PINMUX_PB23D_SERCOM5_PAD3

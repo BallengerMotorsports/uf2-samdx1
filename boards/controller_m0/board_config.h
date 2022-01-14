@@ -3,13 +3,13 @@
 
 #define VENDOR_NAME "Flagtronics"
 #define PRODUCT_NAME "Controller M0"
-#define VOLUME_LABEL "FT-BOOT"
+#define VOLUME_LABEL "FT-Cont-BL"
 #define INDEX_URL "https://flagtronics.com/"
 #define BOARD_ID "Controller-v0"
 
-#define USB_VID 0x239A
-#define USB_PID 0x0015
+#define USB_VID 0x04D8
+#define USB_PID 0x0831
 
-#define LED_PIN PIN_PA16
-
+#define NO_DBL_TAP_BOOT
+#define PWR_PIN PIN_PA17
 #endif
