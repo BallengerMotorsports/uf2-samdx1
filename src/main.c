@@ -133,9 +133,14 @@ static void check_start_application(void) {
 #endif
 #if defined(PWR_PIN)	//Pulls up self Power on pin very early in the boot process
     PINOP(PWR_PIN, DIRSET);
-	PINOP(PWR_PIN, OUTCLR);
-	delay(50);
-	PINOP(PWR_PIN, OUTSET);
+    if (RESET_CONTROLLER->RCAUSE.bit.SYST) { //Check if a SW reset(FW update) happened and hold power pin ON
+        PINOP(PWR_PIN, OUTSET);
+    }
+    else {  //Fresh boot, added delayto prevent false ON
+	    PINOP(PWR_PIN, OUTCLR);
+	    delay(50);
+	    PINOP(PWR_PIN, OUTSET);
+    }
 #endif
     LED_MSC_OFF();
 

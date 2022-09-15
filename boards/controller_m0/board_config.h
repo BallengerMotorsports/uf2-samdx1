@@ -11,5 +11,5 @@
 #define USB_PID 0xE7F3
 
 #define NO_DBL_TAP_BOOT
-#define PWR_PIN PIN_PA17
+#define PWR_PIN PIN_PA17    //Controller self-on power pin, pull high to stay on. 
 #endif
